@@ -1,2 +1,6 @@
 requirements.txt
 venv
+**/__pycache__/
+file.json
+tests_copy/
+venv_*/
