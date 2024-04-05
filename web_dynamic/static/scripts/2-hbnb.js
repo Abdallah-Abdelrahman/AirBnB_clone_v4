@@ -9,7 +9,7 @@ $(document).ready(function () {
     if (this.checked) {
       amenities.push({ [amenityId]: amenityName });
     } else {
-      amenities.pop(
+      amenities.splice(
         amenities.findIndex((amenity) => Object.keys(amenity)[0] === amenityId),
         1
       );
