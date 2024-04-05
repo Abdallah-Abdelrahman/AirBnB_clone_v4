@@ -20,7 +20,7 @@ $(document).ready(function () {
 
   // ajax request to retrieve the status
   $.get('http://0.0.0.0:5001/api/v1/status/', (data, status) => {
-    if (status === 'success' && data.status == 'OK') {
+    if (status === 'success' && data.status === 'OK') {
       console.log({ data });
       $('div#api_status').addClass('available');
     }
