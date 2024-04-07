@@ -22,11 +22,12 @@ $(document).ready(function () {
           .parent()
           .next()
           .find('input[id=city_filter]')
-          .prop('checked', true)
-          .change();
+          .each(function () {
+            $(this).prop('checked', true);
+            cities[$(this).attr('data-id')] = $(this).attr('data-name');
+          });
       } else if ($(this).attr('id') === 'city_filter') {
         cities[id] = name;
-        // cities[id] = name;
       } else {
         amenities[id] = name;
       }
@@ -36,8 +37,10 @@ $(document).ready(function () {
           .parent()
           .next()
           .find('input[id=city_filter]')
-          .prop('checked', false)
-          .change();
+          .each(function () {
+            $(this).prop('checked', false);
+            delete cities[$(this).attr('data-id')];
+          });
         delete states[id];
       } else if ($(this).attr('id') === 'city_filter') {
         delete cities[id];
@@ -126,36 +129,56 @@ $(document).ready(function () {
   function updateStatesText () {
     const locations = [];
 
+    for (const cityId in cities) {
+      const cityName = cities[cityId];
+
+      $.get(`http://0.0.0.0:5001/api/v1/cities/${cityId}/`, (cityData) => {
+        $.get(
+          `http://0.0.0.0:5001/api/v1/states/${cityData.state_id}`,
+          (stateData) => {
+            const stateName = stateData.name;
+
+            // Check if the state is already in the locations array
+            const stateIndex = locations.findIndex((location) =>
+              location.startsWith(`<strong>${stateName}</strong>`)
+            );
+            if (stateIndex > -1) {
+              // If the state is already in the array, add the city to it
+              locations[stateIndex] += `, ${cityName}`;
+            } else {
+              // If the state is not in the array, add it with the city
+              locations.push(`<strong>${stateName}</strong>: ${cityName}`);
+            }
+          }
+        );
+      });
+    }
+
     for (const stateId in states) {
       const stateName = states[stateId];
-      const cityNames = [];
 
-      for (const cityId in cities) {
-        if (
-          $(`input[data-id=${stateId}]`)
-            .parent()
-            .find(`input[data-id=${cityId}]`).length > 0
-        ) {
-          cityNames.push(cities[cityId]);
-        }
+      // If the state is not in the array, add it
+      if (
+        !locations.some((location) =>
+          location.startsWith(`<strong>${stateName}</strong>`)
+        )
+      ) {
+        locations.push(`<strong>${stateName}</strong>`);
       }
+    }
 
-      if (cityNames.length > 0) {
-        locations.push(`${stateName}: ${cityNames.join(', ')}`);
+    // Wait for all AJAX requests to complete before updating the template
+    $(document).ajaxStop(function () {
+      const text = locations.join(', ');
+
+      if (locations.length === 0) {
+        $('.locations h4').html(' ');
       } else {
-        locations.push(`**${stateName}**`);
+        $('.locations h4').html(
+          text.length > 60 ? `${text.substr(0, 60)}...` : text
+        );
+        $('.locations h4').css('white-space', 'nowrap');
       }
-    }
-
-    const text = locations.join(', ');
-
-    if (locations.length === 0) {
-      $('.locations h4').html(' ');
-    } else {
-      $('.locations h4').html(
-        text.length > 60 ? `${text.substr(0, 60)}...` : text
-      );
-      $('.locations h4').css('white-space', 'nowrap');
-    }
+    });
   }
 });
