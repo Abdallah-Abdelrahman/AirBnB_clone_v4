@@ -99,3 +99,7 @@
 .user {
   margin-bottom: 1.5%;
 }
+
+h2 span:hover {
+  cursor: pointer;
+}
