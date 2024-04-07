@@ -140,7 +140,7 @@ $(document).ready(function () {
               <li>
                 <h3 style="font-size: 14px;">From ${userData.first_name} ${
                   userData.last_name
-                } the ${new Date(review.created_at).toLocaleDateString()}</h3>
+                } on ${new Date(review.created_at).toLocaleDateString()}</h3>
                 <p style="font-size: 12px;">${review.text}</p>
               </li>
             `);
