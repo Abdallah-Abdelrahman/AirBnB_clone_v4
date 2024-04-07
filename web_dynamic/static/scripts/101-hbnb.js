@@ -67,53 +67,64 @@ $(document).ready(function () {
         amenities: Object.keys(amenities)
       };
 
+      $('#loadingSpinner').show();
+
       $.ajax({
         type: 'POST',
         url: 'http://0.0.0.0:5001/api/v1/places_search',
         data: JSON.stringify(query),
         headers: { 'content-type': 'application/json' },
         success: (data) => {
-          $('.places').empty();
-          data.forEach((place) => {
-            $.get(
-              `http://0.0.0.0:5001/api/v1/users/${place.user_id}`,
-              (userData) => {
-                const article = `
-              <article>
-                <div class="title_box">
-                  <h2>${place.name}</h2>
-                  <div class="price_by_night">$${place.price_by_night}</div>
-                </div>
-                <div class="information">
-                  <div class="max_guest">${place.max_guest} Guest${
-                    place.max_guest > 1 ? 's' : ''
-                  }</div>
-                  <div class="number_rooms">${place.number_rooms} Bedroom${
-                    place.number_rooms > 1 ? 's' : ''
-                  }</div>
-                  <div class="number_bathrooms">${
-                    place.number_bathrooms
-                  } Bathroom${place.number_bathrooms > 1 ? 's' : ''}</div>
-                </div>
-                <div class="user">
-                  <b>Owner:</b> ${userData.first_name} ${userData.last_name}
-                </div>
-                <div class="description">
-                  ${place.description}
-                </div>
-                <div class="reviews" style="margin-top: 40px;">
-                  <h2 style="font-size: 16px; border-bottom: 1px solid #DDDDDD;">Reviews<span class="toggle_reviews" style="float: right;" data-place-id="${
-                    place.id
-                  }">show</span></h2>
-                  <ul class="review_list" style="list-style: none;"></ul>
-                </div>
-              </article>
-            `;
+          const placePromises = data.map((place) => {
+            return new Promise((resolve) => {
+              $.get(
+                `http://0.0.0.0:5001/api/v1/users/${place.user_id}`,
+                (userData) => {
+                  const article = `
+                <article>
+                  <div class="title_box">
+                    <h2>${place.name}</h2>
+                    <div class="price_by_night">$${place.price_by_night}</div>
+                  </div>
+                  <div class="information">
+                    <div class="max_guest">${place.max_guest} Guest${
+                      place.max_guest > 1 ? 's' : ''
+                    }</div>
+                    <div class="number_rooms">${place.number_rooms} Bedroom${
+                      place.number_rooms > 1 ? 's' : ''
+                    }</div>
+                    <div class="number_bathrooms">${
+                      place.number_bathrooms
+                    } Bathroom${place.number_bathrooms > 1 ? 's' : ''}</div>
+                  </div>
+                  <div class="user">
+                    <b>Owner:</b> ${userData.first_name} ${userData.last_name}
+                  </div>
+                  <div class="description">
+                    ${place.description}
+                  </div>
+                  <div class="reviews" style="margin-top: 40px;">
+                    <h2 style="font-size: 16px; border-bottom: 1px solid #DDDDDD;">Reviews<span class="toggle_reviews" style="float: right;" data-place-id="${
+                      place.id
+                    }">show</span></h2>
+                    <ul class="review_list" style="list-style: none;"></ul>
+                  </div>
+                </article>
+              `;
 
-                $('.places').append(article);
-              }
-            );
+                  resolve(article);
+                }
+              );
+            });
           });
+
+          Promise.all(placePromises).then((articles) => {
+            $('.places').empty().append(articles);
+          });
+          $('#loadingSpinner').hide();
+        },
+        error: () => {
+          $('#loadingSpinner').hide();
         }
       });
     } catch (err) {
