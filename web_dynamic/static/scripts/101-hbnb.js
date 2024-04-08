@@ -11,47 +11,101 @@ $(document).ready(function () {
     }
   });
 
-  $('input[type=checkbox]').change(function () {
-    const id = $(this).attr('data-id');
-    const name = $(this).attr('data-name');
+  const handler = (function IIFE () {
+    const cities_ = {};
+    return function actionHandler (action) {
+      return function evtHandler (evt) {
+        const id = evt.target.getAttribute('data-id');
+        const name = evt.target.getAttribute('data-name');
+        const isChecked = evt.target.checked;
 
-    if (this.checked) {
-      if ($(this).attr('id') === 'state_filter') {
-        states[id] = name;
-        $(this)
-          .parent()
-          .next()
-          .find('input[id=city_filter]')
-          .each(function () {
-            $(this).prop('checked', true);
-            cities[$(this).attr('data-id')] = $(this).attr('data-name');
-          });
-      } else if ($(this).attr('id') === 'city_filter') {
-        cities[id] = name;
-      } else {
-        amenities[id] = name;
-      }
-    } else {
-      if ($(this).attr('id') === 'state_filter') {
-        $(this)
-          .parent()
-          .next()
-          .find('input[id=city_filter]')
-          .each(function () {
-            $(this).prop('checked', false);
-            delete cities[$(this).attr('data-id')];
-          });
-        delete states[id];
-      } else if ($(this).attr('id') === 'city_filter') {
-        delete cities[id];
-      } else {
-        delete amenities[id];
-      }
-    }
+        switch (action) {
+          case 'state':
+            const ctItems = evt.target.parentElement.nextElementSibling;
+            if (isChecked) {
+              cities_[name] = [];
 
-    updateAmenitiesText();
-    updateStatesText();
-  });
+              // Make all cities' boxes related to `this` state checked
+              [...ctItems.children].forEach(li => {
+                const ct_input = li.children[0];
+                ct_input.checked = true;
+                cities_[name].push({ [ct_input.getAttribute('data-id')]: ct_input.getAttribute('data-name') });
+              });
+
+              updateLocationsUI(cities_);
+              return;
+            }
+
+            // when unchecked, undo all
+            cities_[name] = [];
+            updateLocationsUI(cities);
+            [...ctItems.children].forEach(li => li.children[0].checked = false);
+            break;
+
+          case 'amnt':
+            console.log({ action });
+            break;
+
+          case 'city':
+            let checkCounter = 0;
+            const ul = evt.target.parentElement.parentElement;
+            const state_input = ul.previousElementSibling.children[0];
+            const state_name = state_input.getAttribute('data-name');
+
+            // Determine the number of checked cities' boxes pair state
+            [...ul.children].forEach(li => li.children[0].checked && checkCounter++);
+
+            if (checkCounter == ul.children.length) {
+              // all checked
+              state_input.indeterminate = false;
+              state_input.checked = true;
+            } else if (checkCounter === 0) {
+              state_input.indeterminate = false;
+              state_input.checked = false;
+            } else {
+              state_input.indeterminate = true;
+              state_input.checked = false;
+            }
+
+            if (!isChecked) {
+              // Remove
+              cities_[state_name].splice(cities_[state_name].findIndex(c =>
+                (Object.keys(c)[0] === id)), 1);
+              updateLocationsUI(cities_);
+              return;
+            }
+
+            if (!(state_name in cities_)) cities_[state_name] = [];
+
+            cities_[state_name].push({ [id]: name });
+            updateLocationsUI(cities_);
+
+            break;
+        }
+      };
+    };
+  }());
+
+  /**
+   * utils to update the rendered text on states heading based on the selected check boxes
+   * @param {Array<{[k:string]: string}>} cities
+   * @returns
+   */
+  function updateLocationsUI (cities) {
+    html = Object.entries(cities)
+      .map(([st, cts]) => {
+        if (cts.length == 0) return '';
+        return `<strong>${st}: </strong>`
+          .concat(cts.map(c => Object.values(c)[0])
+            .join(', '));
+      });
+
+    $('.locations h4').html(html);
+  }
+
+  $('#state_filter[type=checkbox]').change(handler('state'));
+  $('#city_filter[type=checkbox]').change(handler('city'));
+  $('.amenities input[type=checkbox]').change(handler('amnt'));
 
   filterPlaces(amenities);
 
@@ -195,7 +249,9 @@ $(document).ready(function () {
   // Update states tag lines
   function updateStatesText () {
     const locations = [];
+    console.log(states, 'clear');
 
+    /**
     for (const cityId in cities) {
       const cityName = cities[cityId];
 
@@ -220,7 +276,9 @@ $(document).ready(function () {
         );
       });
     }
+    */
 
+    /**
     for (const stateId in states) {
       const stateName = states[stateId];
 
@@ -247,5 +305,6 @@ $(document).ready(function () {
         $('.locations h4').css('white-space', 'nowrap');
       }
     });
+  */
   }
 });
