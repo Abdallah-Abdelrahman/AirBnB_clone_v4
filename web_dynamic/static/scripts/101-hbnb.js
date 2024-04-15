@@ -11,13 +11,16 @@ $(document).ready(function () {
     }
   });
 
-  const handler = (function IIFE () {
+  const [handler, { cities_, amnts_ }] = (function IIFE () {
     const cities_ = {};
-    return function actionHandler (action) {
+    const amnts_ = {};
+
+    function actionHandler (action) {
       return function evtHandler (evt) {
         const id = evt.target.getAttribute('data-id');
         const name = evt.target.getAttribute('data-name');
         const isChecked = evt.target.checked;
+        let i = 0;
 
         switch (action) {
           case 'state':
@@ -32,18 +35,71 @@ $(document).ready(function () {
                 cities_[name].push({ [ct_input.getAttribute('data-id')]: ct_input.getAttribute('data-name') });
               });
 
-              updateLocationsUI(cities_);
+              updateRenderedUI(cities_, 'locations', ([st, cts]) => {
+                if (cts.length == 0) return '';
+                const ui = `<strong>${st}: </strong>`
+                  .concat(cts.map(c => Object.values(c)[0])
+                    .join(', '));
+                return ui.length > 30 ? `${ui.substring(0, 30)}...` : ui;
+              });
               return;
             }
 
             // when unchecked, undo all
             cities_[name] = [];
-            updateLocationsUI(cities);
+            updateRenderedUI(cities_, 'locations', ([st, cts]) => {
+              if (cts.length == 0) return '';
+              return `<strong>${st}: </strong>`
+                .concat(cts.map(c => Object.values(c)[0])
+                  .join(', '));
+            });
             [...ctItems.children].forEach(li => li.children[0].checked = false);
             break;
 
           case 'amnt':
-            console.log({ action });
+            if (isChecked) {
+              amnts_[id] = name;
+              updateRenderedUI(amnts_, 'amenities',
+                ([_, name_], i_, thisArr) => {
+                  const ui = thisArr.map(el => el[1]).join();
+                  const rendered = i_ === thisArr.length - 1
+                    ? name_
+                    : name_ + ', ';
+                  const h4 = document.querySelector('.amenities h4');
+                  const content = h4.textContent;
+                  if (ui.length > 50) {
+                    h4.textContent = '';
+                  }
+
+                  return ui.length > 50
+                    ? (i-- >= 0
+                        ? content.slice(0, content.length - 3) + '...'
+                        : content)
+                    : rendered;
+                });
+              return;
+            }
+
+            // remove amenity and udpate ui accordingly
+            delete amnts_[id];
+            updateRenderedUI(amnts_, 'amenities',
+              ([_, name_], i_, thisArr) => {
+                const ui = thisArr.map(el => el[1]).join();
+                const rendered = i_ === thisArr.length - 1
+                  ? name_
+                  : name_ + ', ';
+                const h4 = document.querySelector('.amenities h4');
+                const content = h4.textContent;
+                if (ui.length > 50) {
+                  h4.textContent = '';
+                }
+
+                return ui.length > 50
+                  ? (i-- >= 0
+                      ? content.slice(0, content.length - 3) + '...'
+                      : content)
+                  : rendered;
+              });
             break;
 
           case 'city':
@@ -71,56 +127,72 @@ $(document).ready(function () {
               // Remove
               cities_[state_name].splice(cities_[state_name].findIndex(c =>
                 (Object.keys(c)[0] === id)), 1);
-              updateLocationsUI(cities_);
+              updateRenderedUI(cities_, 'locations', ([st, cts]) => {
+                if (cts.length == 0) return '';
+                const ui = `<strong>${st}: </strong>`
+                  .concat(cts.map(c => Object.values(c)[0])
+                    .join(', '));
+                return ui.length > 30 ? `${ui.substring(0, 30)}...` : ui;
+              });
               return;
             }
 
             if (!(state_name in cities_)) cities_[state_name] = [];
 
             cities_[state_name].push({ [id]: name });
-            updateLocationsUI(cities_);
+
+            updateRenderedUI(cities_, 'locations', ([st, cts]) => {
+              if (cts.length == 0) return '';
+              const ui = `<strong>${st}: </strong>`
+                .concat(cts.map(c => Object.values(c)[0])
+                  .join(', '));
+              return ui.length > 30 ? `${ui.substring(0, 30)}...` : ui;
+            });
 
             break;
         }
       };
-    };
+    }
+    return [actionHandler, { cities_, amnts_ }];
   }());
 
   /**
    * utils to update the rendered text on states heading based on the selected check boxes
    * @param {Array<{[k:string]: string}>} cities
+   * @param {string} clsName param
+   * @param {function} cb
    * @returns
    */
-  function updateLocationsUI (cities) {
+  function updateRenderedUI (cities, clsName, cb = () => {}) {
     html = Object.entries(cities)
-      .map(([st, cts]) => {
-        if (cts.length == 0) return '';
-        return `<strong>${st}: </strong>`
-          .concat(cts.map(c => Object.values(c)[0])
-            .join(', '));
-      });
+      .map(cb);
 
-    $('.locations h4').html(html);
+    $(`.${clsName} h4`).html(html);
   }
 
   $('#state_filter[type=checkbox]').change(handler('state'));
   $('#city_filter[type=checkbox]').change(handler('city'));
   $('.amenities input[type=checkbox]').change(handler('amnt'));
 
-  filterPlaces(amenities);
-
-  $('.filters button').click((_evt) => {
-    filterPlaces(amenities);
+  filterPlaces({
+    cities: Object.keys(cities_).map(st_name => cities_[st_name].map(cty => Object.keys(cty)[0])),
+    amenities: Object.keys(amnts_)
   });
 
-  function filterPlaces (amenities) {
-    try {
-      const query = {
-        states: Object.keys(states),
-        cities: Object.keys(cities),
-        amenities: Object.keys(amenities)
-      };
+  $('.filters button').click((_evt) => {
+    // console.log({ cities_, amnts_ });
+    filterPlaces({
+      cities: Object.keys(cities_)
+        .map(st_name => cities_[st_name]
+          .map(cty => Object.keys(cty)[0]))
+        .reduce((acc, el) => acc.concat(el), []),
+      amenities: Object.keys(amnts_)
+    });
+  });
 
+  function filterPlaces (query) {
+    // console.log({ cities, amenities });
+    try {
       $('#loadingSpinner').show();
 
       $.ajax({
@@ -182,7 +254,7 @@ $(document).ready(function () {
         }
       });
     } catch (err) {
-      console.error(err);
+      // console.error(err);
       throw err;
     }
   }
@@ -230,81 +302,4 @@ $(document).ready(function () {
       $(this).text('show');
     }
   });
-
-  // Update amenities tag lines
-  function updateAmenitiesText () {
-    //    const amenityNames = amenities.map((amenity) => Object.values(amenity)[0]);
-    const text = Object.values(amenities).join(', ');
-
-    if (Object.keys(amenities).length === 0) {
-      $('.amenities h4').html('&nbsp;');
-    } else {
-      $('.amenities h4').text(
-        text.length > 60 ? `${text.substr(0, 60)}...` : text
-      );
-      $('.amenities h4').css('white-space', 'nowrap');
-    }
-  }
-
-  // Update states tag lines
-  function updateStatesText () {
-    const locations = [];
-    console.log(states, 'clear');
-
-    /**
-    for (const cityId in cities) {
-      const cityName = cities[cityId];
-
-      $.get(`http://0.0.0.0:5001/api/v1/cities/${cityId}/`, (cityData) => {
-        $.get(
-          `http://0.0.0.0:5001/api/v1/states/${cityData.state_id}`,
-          (stateData) => {
-            const stateName = stateData.name;
-
-            // Check if the state is already in the locations array
-            const stateIndex = locations.findIndex((location) =>
-              location.startsWith(`<strong>${stateName}</strong>`)
-            );
-            if (stateIndex > -1) {
-              // If the state is already in the array, add the city to it
-              locations[stateIndex] += `, ${cityName}`;
-            } else {
-              // If the state is not in the array, add it with the city
-              locations.push(`<strong>${stateName}</strong>: ${cityName}`);
-            }
-          }
-        );
-      });
-    }
-    */
-
-    /**
-    for (const stateId in states) {
-      const stateName = states[stateId];
-
-      // If the state is not in the array, add it
-      if (
-        !locations.some((location) =>
-          location.startsWith(`<strong>${stateName}</strong>`)
-        )
-      ) {
-        locations.push(`<strong>${stateName}</strong>`);
-      }
-    }
-
-    // Wait for all AJAX requests to complete before updating the template
-    $(document).ajaxStop(function () {
-      const text = locations.join(', ');
-
-      if (locations.length === 0) {
-        $('.locations h4').html(' ');
-      } else {
-        $('.locations h4').html(
-          text.length > 60 ? `${text.substr(0, 60)}...` : text
-        );
-        $('.locations h4').css('white-space', 'nowrap');
-      }
-    });
-  */
-  }
 });
